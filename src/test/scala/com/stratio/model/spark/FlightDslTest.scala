@@ -93,6 +93,8 @@ class FlightDslTest extends FlatSpec with ShouldMatchers with LocalSparkSqlConte
 
   "FlightDsl" should "parser csv in Flights" in new WithFlightsText {
     val collect = textFlights.toFlight.collect
+    //collect.foreach(println)
+    //listFlights.foreach(println)
     collect.sameElements(listFlights) should be(true)
   }
 
