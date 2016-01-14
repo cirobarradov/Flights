@@ -1,12 +1,16 @@
 package com.stratio.model.spark
 
-import com.stratio.model.{Flight, FuelPrice}
+import java.util.Calendar
+
+import com.stratio.model.{Delays, Cancelled, Flight, FuelPrice}
 import org.apache.spark.rdd.RDD
+import org.joda.time.LocalDate
 
 import scala.language.implicitConversions
 
 class FlightCsvReader(self: RDD[String]) {
 
+  //val depTime=4
   /**
    *
    * Parsea el RDD[String] de CSV's a un RDD[Flight]
@@ -15,7 +19,30 @@ class FlightCsvReader(self: RDD[String]) {
    *
    */
   def toFlight: RDD[Flight] = {
-    ???
+    val c = self.map(x=>Flight( new LocalDate(
+      x.split(",")(0).toInt,x.split(",")(1).toInt+1, x.split(",")(2).toInt).toDate,
+      x.split(",")(4).toInt,
+      x.split(",")(5).toInt,
+      x.split(",")(6).toInt,
+      x.split(",")(7).toInt,
+      x.split(",")(8).toString,
+      x.split(",")(9).toInt,
+      x.split(",")(11).toInt,
+      x.split(",")(12).toInt,
+      x.split(",")(14).toInt,
+      x.split(",")(15).toInt,
+      x.split(",")(16).toString,
+      x.split(",")(17).toString,
+      x.split(",")(18).toInt,
+      Flight.parseCancelled(x.split(",")(21)),
+      x.split(",")(22).toInt,
+      Delays(Flight.parseCancelled(x.split(",")(24)),
+        Flight.parseCancelled(x.split(",")(25)),
+        Flight.parseCancelled(x.split(",")(26)),
+        Flight.parseCancelled(x.split(",")(27)),
+        Flight.parseCancelled(x.split(",")(28)))))
+      c
+
   }
 
   /**
@@ -27,7 +54,11 @@ class FlightCsvReader(self: RDD[String]) {
    *
    */
   def toErrors: RDD[(String, String)] = {
-   ???
+    val c = self.map(x=>Flight.extractErrors(x.split(","))).filter(x=>x.length>0).
+    flatMap(x=>x).map(x=>(x.hashCode.toString,x))
+    //map(x=>(x(0),x(1)))
+    c.foreach(println)
+    c
   }
 }
 
@@ -40,7 +71,12 @@ class FlightFunctions(self: RDD[Flight]) {
    *
    */
   def averageDistanceByAirport: RDD[(String, Float)] = {
-    ???
+    val c = self.map(x=>(x.origin,x.distance.toFloat))
+    //c.aggregateByKey((0,0),((accum, v) => accum + v, (v1, v2) => v1 + v2))
+    //rdd1.aggregateByKey((0,0), lambda a,b: (a[0] + b,    a[1] + 1),
+    //lambda a,b: (a[0] + b[0], a[1] + b[1]))
+    c.foreach(println)
+    c
   }
 
   /**
