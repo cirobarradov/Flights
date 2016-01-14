@@ -56,8 +56,6 @@ class FlightCsvReader(self: RDD[String]) {
   def toErrors: RDD[(String, String)] = {
     val c = self.map(x=>Flight.extractErrors(x.split(","))).filter(x=>x.length>0).
     flatMap(x=>x).map(x=>(x.hashCode.toString,x))
-    //map(x=>(x(0),x(1)))
-    c.foreach(println)
     c
   }
 }
@@ -71,12 +69,16 @@ class FlightFunctions(self: RDD[Flight]) {
    *
    */
   def averageDistanceByAirport: RDD[(String, Float)] = {
-    val c = self.map(x=>(x.origin,x.distance.toFloat))
-    //c.aggregateByKey((0,0),((accum, v) => accum + v, (v1, v2) => v1 + v2))
-    //rdd1.aggregateByKey((0,0), lambda a,b: (a[0] + b,    a[1] + 1),
-    //lambda a,b: (a[0] + b[0], a[1] + b[1]))
-    c.foreach(println)
-    c
+    val c = self.map(x=>(x.origin,x.distance))
+
+    val result = c.combineByKey(
+      (v) => (v, 1),
+      (acc: (Int, Int), v) => (acc._1 + v, acc._2 + 1),
+      (acc1: (Int, Int), acc2: (Int, Int)) => (acc1._1 + acc2._1, acc1._2 + acc2._2)
+    ).map{ case (key, value) => (key, value._1 / value._2.toFloat) }
+
+
+    result
   }
 
   /**
@@ -92,7 +94,15 @@ class FlightFunctions(self: RDD[Flight]) {
    *
    */
   def minFuelConsumptionByMonthAndAirport(fuelPrice: RDD[FuelPrice]): RDD[(String, (Int, Int))] = {
-   ???
+   val c = self.map(x=>(x.origin,(1900+x.date.getYear,x.date.getMonth)))
+
+   val a = self.map(x=>((x.origin,1900+x.date.getYear,x.date.getMonth),x.distance)).reduceByKey(_+_)
+
+    val fuel =fuelPrice.cartesian(self.map(x=>x.origin)).map(x=>((x._2,x._1.year,x._1.month),x._1.price)).distinct()
+    val fuels =fuel.join(a).map(x=>(x._1,x._2._1*x._2._2))
+    val result = fuels.map(x=>(x._1._1,(x._1._2,x._1._3,x._2))).reduceByKey((x,y)=>if (x._3 < y._3) (x._1,x._2,x._3)
+    else (y._1,y._2,y._3)).map(x=>(x._1,(x._2._1,x._2._2)))
+    result
   }
 }
 
