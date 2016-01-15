@@ -96,9 +96,15 @@ class FlightTicketFunctions(self: DStream[FlightTicket]){
    */
   def airportStatistics(flights: RDD[Flight]): DStream[(String, AirportStatistics)]= {
     val fba = byAirport(flights)
-    fba.updateStateByKey(x=>(x._))
-    AirportStatistics.
-    self.map("",AirportStatistics(FlightTicket(1,Person("Maria",'F',50,Some(1250.0)),Company)))
+    fba.map(x=>(x._1,AirportStatistics(x._2))).print()
+    fba.map(x=>(x._1,AirportStatistics(x._2).addFlightTicket(x._2))).print()
+    def updater(ass:Seq[AirportStatistics], as:Option[AirportStatistics]): Seq[AirportStatistics] ={
+
+      ass
+    }
+    fba.updateStateByKey(updater, )
+    //self.map("",AirportStatistics(FlightTicket(1,Person("Maria",'F',50,Some(1250.0)),Company)))
+    fba.map(x=>(x._1,AirportStatistics(x._2).addFlightTicket(x._2)))
   }
 }
 
