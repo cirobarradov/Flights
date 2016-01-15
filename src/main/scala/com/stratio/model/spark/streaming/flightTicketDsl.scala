@@ -1,7 +1,8 @@
 package com.stratio.model.spark.streaming
 
-import com.stratio.model.{AirportStatistics, Flight, FlightTicket}
+import com.stratio.model._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.streaming.Duration
 import org.apache.spark.streaming.dstream.DStream
 
 import scala.language.implicitConversions
@@ -24,7 +25,9 @@ class FlightTicketFunctions(self: DStream[FlightTicket]){
       (((sumCounter1._1 * sumCounter1._2) + (sumCounter2._1 * sumCounter2._2)) / (sumCounter1._2 + sumCounter2._2),
         sumCounter1._2 + sumCounter2._2)
 
-    ???
+    self.map(x=>(x.passenger.age.toFloat,1F)).
+      reduceByWindow(avgFunc,Duration(windowSeconds*1000), Duration(slideSeconds*1000))
+
   }
 
   /**
@@ -41,7 +44,12 @@ class FlightTicketFunctions(self: DStream[FlightTicket]){
    * Tip: Usar la operación transform para usar la información de los vuelos.
    */
   def byAirport(flights: RDD[Flight]): DStream[(String, FlightTicket)] = {
-    ???
+    self.transform(rdd=>{
+      flights.map(x=>(x.flightNum,x.origin)).join(rdd.map(x=>(x.flightNumber,
+        FlightTicket(x.flightNumber,x.passenger,x.payer))))
+        .map(x=>(x._2._1,x._2._2))
+    }
+    )
   }
 
   /**
@@ -65,8 +73,9 @@ class FlightTicketFunctions(self: DStream[FlightTicket]){
    */
   def airportMaxFlightsByWindow(flights: RDD[Flight], windowSeconds: Int, slideSeconds: Int): DStream[(String, Int)]= {
     val reduceFunc: (Int, Int) => Int = _ + _
-
-    ???
+    byAirport(flights).map(x=>(x._1,1)).reduceByKeyAndWindow(reduceFunc,
+      Duration(windowSeconds*1000),Duration(slideSeconds*1000)
+    ).reduce((x,y)=>if (x._2 > y._2) (x._1,x._2) else (y._1,y._2))
   }
 
   /**
@@ -86,10 +95,19 @@ class FlightTicketFunctions(self: DStream[FlightTicket]){
    * micro-batch
    */
   def airportStatistics(flights: RDD[Flight]): DStream[(String, AirportStatistics)]= {
-    ???
+    val fba = byAirport(flights)
+    fba.updateStateByKey(x=>(x._))
+    AirportStatistics.
+    self.map("",AirportStatistics(FlightTicket(1,Person("Maria",'F',50,Some(1250.0)),Company)))
   }
 }
 
+/*
+  def addFlightTickets(tickets: Seq[FlightTicket]): AirportStatistics = {
+    if (tickets.isEmpty) this
+    else tickets.aggregate(this)(_.addFlightTicket(_), _.aggregate(_))
+  }
+ */
 trait FlightTicketDsl {
 
   implicit def ticketFunctions(tickets: DStream[FlightTicket]): FlightTicketFunctions =
